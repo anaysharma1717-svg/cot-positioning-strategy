@@ -1,0 +1,8 @@
+cot_reports
+yfinance
+pandas
+numpy
+scipy
+statsmodels
+matplotlib
+pyarrow
