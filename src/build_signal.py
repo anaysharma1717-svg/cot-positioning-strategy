@@ -36,8 +36,19 @@ def build_zscore_signal(asset: str, window: int = 78) -> pd.DataFrame:
     # traded on yet.
     cot.index = cot.index + pd.Timedelta(days=3)
 
+    # merge_asof (not an exact-date join) because the release Friday is a
+    # market holiday ~3-4% of weeks (New Year's, July 4th, Christmas, Good
+    # Friday, ...) — an exact-index join finds no matching price row on those
+    # dates and silently drops that week's update entirely, leaving the
+    # signal stale an extra week. merge_asof(direction="backward") attaches
+    # each price date to the most recent release at or before it, so a
+    # holiday Friday's update correctly appears on the next trading day.
     price = price.sort_index()
-    merged = price.join(cot[["z", cfg["cot_col"]]], how="left").ffill()
+    price.index = price.index.astype("datetime64[ns]")
+    cot.index = cot.index.astype("datetime64[ns]")
+    merged = pd.merge_asof(
+        price, cot[["z", cfg["cot_col"]]], left_index=True, right_index=True, direction="backward"
+    )
     merged = merged.dropna(subset=["z"])
 
     merged.to_parquet(f"{PROCESSED_DIR}/{asset}_signal.parquet")

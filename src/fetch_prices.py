@@ -19,6 +19,11 @@ def fetch_prices(start: str = "2006-01-01") -> dict[str, pd.DataFrame]:
     out = {}
     for name, ticker in TICKERS.items():
         df = yf.download(ticker, start=start, auto_adjust=True, progress=False)
+        # yfinance returns MultiIndex columns like ('Close', 'GC=F') even for
+        # a single ticker; the ticker level is redundant since each file
+        # holds one asset, and downstream code expects plain 'Close' etc.
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
         df.to_parquet(f"{RAW_DIR}/{name}_price.parquet")
         print(f"{name} ({ticker}): {len(df)} daily rows, {df.index.min()} to {df.index.max()}")
         out[name] = df
